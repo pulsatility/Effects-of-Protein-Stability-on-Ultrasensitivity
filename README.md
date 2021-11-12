@@ -1,1 +1,1 @@
-# Modeling-Effects-of-Protein-Stability-on-Ultrasensitivity-of-Covalent-Modification-Cycle
+# Mathematical-Modeling-Effects-of-Protein-Stability-on-Ultrasensitivity-of-Covalent-Modification-Cycle
