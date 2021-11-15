@@ -1,1 +1,1 @@
-# Mathematical Modeling the Effects of Protein Stability on Ultrasensitivity of Covalent Modification Cycle
+# Mathematical modeling on how posttranslationally modulated protein stability affects the ultrasensitivity of covalent modification cycle
