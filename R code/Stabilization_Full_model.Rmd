@@ -1,0 +1,143 @@
+---
+#Full Model
+---
+
+```{r}
+# Load Package
+library(deSolve)
+library(ggplot2)
+
+## ---------------------------------
+## Parameter values
+## --------------------------------- 
+parameters <- c(
+  Xtot = 0,
+  Ytot = 1,
+  k0 = 1,
+  k1f = 10,
+  k1b = 90,
+  k1c = 10,
+  k2f = 10,
+  k2b = 90,
+  k2c = 10,
+  k3 = 0.01,
+  k4 = 0.01
+)
+
+## ----------------------------------
+## Initial conditions
+## ----------------------------------
+y0 <- c(
+  R = 100,
+  Rp = 0,
+  RX = 0,
+  RpY = 0
+)
+
+## ----------------------------------
+## Differential equations to solve
+## ----------------------------------
+Stabilization_Full <- function(times, y, parms)
+{
+  with(as.list(c(y, parms)),
+       {
+         X = Xtot - RX
+         Y = Ytot - RpY
+         
+         #ODEs for the state variables
+        
+          dRdt = k0 - k3 * R - k1f * X * R + k1b * RX + k2c * RpY
+          
+          dRpdt	=  k1c * RX - k4 * Rp - k2f * Rp * Y + k2b * RpY
+          
+          dRXdt = k1f * R * X - k1b * RX - k1c * RX - k3 * RX
+          
+          dRpYdt = k2f * Rp * Y - k2b * RpY - k2c * RpY - k4 * RpY
+         
+         #Return simulated value of stable variables at each time step
+         list(c(dRdt, dRpdt, dRXdt, dRpYdt)); 
+       })
+}
+
+## ----------------------------------
+## Run simulation
+## ----------------------------------
+#Time span of simulation
+tspan <- seq(0, 100000, by = 100)
+
+#Call the lsoda function to numerically solve the ODEs
+output <- lsoda(y = y0, times = tspan, func = Stabilization_Full, parms = parameters)
+
+#Optional: show the result of the first 6 time steps
+head(output)
+
+## ----------------------------------
+## Plotting simulation results
+## ----------------------------------
+plot(output, xlab = "time", ylab = "concentration", cex.lab = 1.4, cex.axis=1.35, las=1, col="blue")
+```
+
+
+```{r}
+## --------------------------------------------------------------
+## Simulate time-course response to multiple levels of input "Xtot"
+## --------------------------------------------------------------
+
+# generate blank plots
+R_plot <- ggplot() +ylim(0, 100) +xlim(0,100000)+ labs(x='time', y='R')+theme(text = element_text(size=20))
+Rp_plot <- ggplot() +ylim(0, 100) +xlim(0,100000)+ labs(x='time', y='Rp')+theme(text = element_text(size=20))
+Rtotfree_plot <- ggplot() +ylim(0, 1000) +xlim(0,100000)+ labs(x='time', y='Rtotfree')+theme(text = element_text(size=20))
+
+# do batch run by varying "Xtot"
+Xtotdose <- c(1, 2, 4, 8, 16)
+for( i in Xtotdose)
+{
+  parameters["Xtot"]= i
+  output <- lsoda(y = y0, times = tspan, func = Stabilization_Full, parms = parameters)
+  line_color = sample(rainbow(60),1)
+  R_plot <- R_plot+geom_line(data=data.frame(output), aes(x = time, y = R), color = line_color)
+  Rp_plot <- Rp_plot+geom_line(data=data.frame(output), aes(x = time, y = Rp), color = line_color)
+  Rtotfree_plot <- Rtotfree_plot+geom_line(data=data.frame(output), aes(x = time, y = R+Rp), color = line_color)
+}
+
+# print plots
+R_plot
+Rp_plot
+Rtotfree_plot
+```
+
+
+```{r}
+## -------------------------------------
+## Dose Response
+## -------------------------------------
+Xtotdose <- c(0,0.1*1.01^seq(0, 1200,by=1))
+Rss <- c()
+Rpss <- c()
+Rtotfreess <- c()
+
+for( i in Xtotdose)
+{
+  
+  parameters["Xtot"]=i
+  output <- lsoda(y = y0, times = tspan, func =  Stabilization_Full, parms = parameters)
+  lastpoint_index <- length(output[,"time"])
+  Rss <- c(Rss,output[lastpoint_index,"R"])
+  Rpss <- c(Rpss,output[lastpoint_index,"Rp"])
+  Rtotfreess <- c(Rtotfreess,output[lastpoint_index,"R"]+output[lastpoint_index,"Rp"])
+}
+
+# plot
+ggplot(data=data.frame(Xtotdose, Rss), aes(x= Xtotdose, y = Rss)) + ylim(0, 100) + labs(x='Xtot') + theme(text = element_text(size=20))+
+  geom_line(col="blue")
+
+ggplot(data=data.frame(Xtotdose, Rpss), aes(x= Xtotdose, y = Rpss)) + labs(x='Xtot') + theme(text = element_text(size=20))+
+  geom_line(col="red")
+
+ggplot(data=data.frame(Xtotdose, Rtotfreess), aes(x= Xtotdose, y = Rtotfreess)) + labs(x='Xtot') + theme(text = element_text(size=20))+
+  geom_line(col="black")
+```
+
+
+
+
