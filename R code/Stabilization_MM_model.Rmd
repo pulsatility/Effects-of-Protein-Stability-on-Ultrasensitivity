@@ -1,0 +1,131 @@
+---
+#Michaelis-Menten (MM) Model
+---
+
+```{r}
+# Load Package
+library(deSolve)
+library(ggplot2)
+
+## ---------------------------------
+## Parameter values
+## --------------------------------- 
+parameters <- c(
+  X = 0,        #Kinase (concentration)
+  Y = 1,        #Phosphatase (concentration)
+  k0	= 1,    #Rate constant of synthesis of R (concentration/time)
+  k1	= 10,   #Catalytic rate constant for phosphorylation (1/time)
+  k2	= 10,   #Catalytic rate constant for dephosphorylation (concentration/time)
+  k3	= 0.01, #Degradation rate constant of R (1/time)
+  k4	= 0.01, #Degradation rate constant of Rp(1/time)
+  Km1 = 10,     #Michaelis constant for phosphorylation (concentration)
+  Km2 = 10     #Michaelis constant for dephosphorylation
+)
+
+## ----------------------------------
+## Initial conditions
+## ----------------------------------
+y0 <- c(
+  R = 100,
+  Rp = 0
+)
+
+## ----------------------------------
+## Differential equations to solve
+## ----------------------------------
+Stabilization_MM <- function(times, y, parms)
+{
+  with(as.list(c(y, parms)),
+       {
+         #ODEs for the state variables
+          dRdt = k0 - k1*X*R/(Km1+R) + k2*Y*Rp/(Km2+Rp) - k3*R
+          
+          dRpdt	=  k1*X*R/(Km1+R) - k2*Y*Rp/(Km2+Rp) - k4*Rp
+         
+         #Return simulated value of stable variables at each time step
+         list(c(dRdt, dRpdt)); 
+       })
+}
+
+## ----------------------------------
+## Run simulation
+## ----------------------------------
+#Time span of simulation
+tspan <- seq(0, 100000, by = 100)
+
+#Call the lsoda function to numerically solve the ODEs
+output <- lsoda(y = y0, times = tspan, func = Stabilization_MM, parms = parameters)
+
+#Optional: show the result of the first 6 time steps
+head(output)
+
+## ----------------------------------
+## Plotting simulation results
+## ----------------------------------
+plot(output, xlab = "time", ylab = "concentration", cex.lab = 1.4, cex.axis=1.35, las=1, col="blue")
+```
+
+
+```{r}
+## --------------------------------------------------------------
+## Simulate time-course response to multiple levels of input "X"
+## --------------------------------------------------------------
+
+# generate blank plots
+R_plot <- ggplot() +ylim(0, 100) +xlim(0,100000)+ labs(x='time', y='R')+theme(text = element_text(size=20))
+Rp_plot <- ggplot() +ylim(0, 100) +xlim(0,100000)+ labs(x='time', y='Rp')+theme(text = element_text(size=20))
+Rtot_plot <- ggplot() +ylim(0, 1000) +xlim(0,100000)+ labs(x='time', y='Rtot')+theme(text = element_text(size=20))
+
+# do batch run by varying "X"
+Xdose <- c(1, 2, 4, 8, 16)
+for( i in Xdose)
+{
+  parameters["X"]= i
+  output <- lsoda(y = y0, times = tspan, func = Stabilization_MM, parms = parameters)
+  line_color = sample(rainbow(60),1)
+  R_plot <- R_plot+geom_line(data=data.frame(output), aes(x = time, y = R), color = line_color)
+  Rp_plot <- Rp_plot+geom_line(data=data.frame(output), aes(x = time, y = Rp), color = line_color)
+  Rtot_plot <- Rtot_plot+geom_line(data=data.frame(output), aes(x = time, y = R+Rp), color = line_color)
+}
+
+# print plots
+R_plot
+Rp_plot
+Rtot_plot
+```
+
+
+```{r}
+## -------------------------------------
+## Dose Response
+## -------------------------------------
+Xdose <- c(0,0.01*1.01^seq(0, 1000,by=1))
+Rss <- c()
+Rpss <- c()
+Rtotss <- c()
+
+for( i in Xdose)
+{
+  
+  parameters["X"]=i
+  output <- lsoda(y = y0, times = tspan, func =  Stabilization_MM, parms = parameters)
+  lastpoint_index <- length(output[,"time"])
+  Rss <- c(Rss,output[lastpoint_index,"R"])
+  Rpss <- c(Rpss,output[lastpoint_index,"Rp"])
+  Rtotss <- c(Rtotss,output[lastpoint_index,"R"]+output[lastpoint_index,"Rp"])
+}
+
+# plot
+ggplot(data=data.frame(Xdose, Rss), aes(x= Xdose, y = Rss)) + ylim(0, 100) + labs(x='X') + theme(text = element_text(size=20))+
+  geom_line(col="blue")
+
+ggplot(data=data.frame(Xdose, Rpss), aes(x= Xdose, y = Rpss)) + labs(x='X') + theme(text = element_text(size=20))+
+  geom_line(col="red")
+
+ggplot(data=data.frame(Xdose, Rtotss), aes(x= Xdose, y = Rtotss)) + labs(x='X') + theme(text = element_text(size=20))+
+  geom_line(col="black")
+```
+
+
+
+
